@@ -1,6 +1,7 @@
 interface Env {
   CREATIONS_BUCKET: R2Bucket
   OPENAI_API_KEY: string
+  REPLICATE_API_TOKEN: string
   AUTH_SECRET: string
   SYNESTHESAI_FRONTEND_URL: string
 }

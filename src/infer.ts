@@ -2,6 +2,8 @@ import { IRequest } from "itty-router";
 import { getLyrics } from "./lyrics";
 import { inferPrompt } from "./openai";
 import { corsHeaders } from "./cors";
+import { inferImage } from "./sdxl";
+import { uploadImage } from "./images";
 
 export async function infer(request: IRequest, env: Env, ctx: ExecutionContext) {
   if (request.headers.get("Content-Type") !== "application/json") {
@@ -17,7 +19,8 @@ export async function infer(request: IRequest, env: Env, ctx: ExecutionContext) 
   const sdxlPrompt = await inferPrompt(env.OPENAI_API_KEY, promptOptions)
   console.log(sdxlPrompt)
 
-  return Response.json(sdxlPrompt, {
+  const image = await inferImage(request, env, sdxlPrompt)
+  return Response.json(image, {
     headers: corsHeaders(env)
   })
 }
