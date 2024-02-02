@@ -13,6 +13,7 @@
     "wrangler": "^3.0.0"
   },
   "dependencies": {
-    "itty-router": "^4.0.27"
+    "itty-router": "^4.0.27",
+    "openai": "^4.26.0"
   }
 }

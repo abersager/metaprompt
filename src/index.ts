@@ -1,15 +1,16 @@
 import { IRequest, Router } from 'itty-router'
 
 import { uploadImage, getImage } from './images'
-import { handleOptions } from './options'
+import { infer } from './infer'
+import { handleOptions } from './cors'
 
 const router = Router()
 
-// router.post("/image", uploadImage)
 router.options('*', handleOptions)
+router.post('/infer', infer)
 
-router.get("/image/:key", async (request: IRequest, env: Env, ctx) => {
-  // Decode text like "Hello%20world" into "Hello world"
+router.get('/image/:key', async (request: IRequest, env: Env, ctx) => {
+  // Decode text like 'Hello%20world' into 'Hello world'
   let key = decodeURIComponent(request.params.key)
   return await getImage(key, request, env, ctx)
 })
