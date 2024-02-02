@@ -1,13 +1,12 @@
 import { IRequest } from "itty-router"
 
 export function handleOptions(request: IRequest, env: Env, ctx: ExecutionContext) {
-  console.log(env)
   if (request.headers.get("Origin") !== null &&
-      request.headers.get("Access-Control-Request-Method") !== null &&
-      request.headers.get("Access-Control-Request-Headers") !== null) {
+    request.headers.get("Access-Control-Request-Method") !== null &&
+    request.headers.get("Access-Control-Request-Headers") !== null) {
     // Handle CORS pre-flight request.
     return new Response(null, {
-      headers: corsHeaders(env)
+      headers: corsHeaders(request, env)
     })
   } else {
     // Handle standard OPTIONS request.
@@ -19,9 +18,13 @@ export function handleOptions(request: IRequest, env: Env, ctx: ExecutionContext
   }
 }
 
-export function corsHeaders(env: Env) {
+export function corsHeaders(request: IRequest, env: Env) {
+  const frontendUrls = JSON.parse(env.SYNESTHESAI_FRONTEND_URLS)
+  const origin = request.headers.get("Origin")
+
+  const allowedOrigin = typeof origin === 'string' && frontendUrls.includes(origin) ? origin : 'null'
   return {
-    "Access-Control-Allow-Origin": env.SYNESTHESAI_FRONTEND_URL,
+    "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "*",
   }

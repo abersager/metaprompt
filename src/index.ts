@@ -9,8 +9,12 @@ const router = Router()
 router.options('*', handleOptions)
 router.post('/infer', infer)
 
+router.get('/convert/:url+', async (request: IRequest, env: Env, ctx) => {
+  let url = decodeURIComponent(request.params.url)
+  return await uploadImage(env, url)
+})
+
 router.get('/image/:key', async (request: IRequest, env: Env, ctx) => {
-  // Decode text like 'Hello%20world' into 'Hello world'
   let key = decodeURIComponent(request.params.key)
   return await getImage(key, request, env, ctx)
 })

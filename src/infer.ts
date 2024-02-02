@@ -19,8 +19,11 @@ export async function infer(request: IRequest, env: Env, ctx: ExecutionContext) 
   const sdxlPrompt = await inferPrompt(env.OPENAI_API_KEY, promptOptions)
   console.log(sdxlPrompt)
 
-  const image = await inferImage(request, env, sdxlPrompt)
-  return Response.json(image, {
-    headers: corsHeaders(env)
+  const imageUrls = await inferImage(request, env, sdxlPrompt)
+
+  const uploads = await Promise.all(imageUrls.map(url => uploadImage(env, url)))
+
+  return Response.json(uploads, {
+    headers: corsHeaders(request, env)
   })
 }

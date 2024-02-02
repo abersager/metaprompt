@@ -3,7 +3,7 @@ interface Env {
   OPENAI_API_KEY: string
   REPLICATE_API_TOKEN: string
   AUTH_SECRET: string
-  SYNESTHESAI_FRONTEND_URL: string
+  SYNESTHESAI_FRONTEND_URLS: string
 }
 
 type LyricsLine = {
@@ -33,4 +33,9 @@ type PromptData = {
   modifiers: {
     [key: string]: string
   } | string
+}
+
+type ImageResponse = {
+  key: string
+  image: Uint8Array
 }

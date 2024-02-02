@@ -5,16 +5,19 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "start": "wrangler dev"
+    "start": "wrangler dev",
+    "postinstall": "cp src/vendor/photon-worker-compat.js node_modules/@silvia-odwyer/photon-node/photon_rs.js"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240129.0",
     "typescript": "^5.0.4",
-    "wrangler": "^3.0.0"
+    "wrangler": "^3.26.0"
   },
   "dependencies": {
+    "@silvia-odwyer/photon-node": "0.3.3",
     "itty-router": "^4.0.27",
     "openai": "^4.26.0",
-    "replicate": "^0.25.2"
+    "replicate": "^0.25.2",
+    "text-encoder": "^0.0.4"
   }
 }
