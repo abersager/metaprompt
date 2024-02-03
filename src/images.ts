@@ -11,7 +11,14 @@ function parseReplicateImageUrl(urlString: string) {
   return url[1]
 }
 
-export async function uploadImage(env: Env, urlString: string){
+export async function uploadImage(request: IRequest, env: Env, _ctx: ExecutionContext, urlString: string){
+  const auth = request.headers.get('Authorization');
+  const expectedAuth = `Bearer ${env.AUTH_SECRET}`;
+
+  if (!auth || auth !== expectedAuth) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
   console.log(`Uploading image from ${urlString}`)
   const key = parseReplicateImageUrl(urlString)
   if (!key) {
@@ -34,13 +41,14 @@ export async function uploadImage(env: Env, urlString: string){
   ])
 
   return {
+    key,
     original: `${key}.png`,
     fullsize: `${key}.jpg`,
     thumbnail: `${key}_thumb.jpg`,
   }
 }
 
-export async function getImage(key: string, _request: IRequest, env: any, _ctx: ExecutionContext) {
+export async function getImage(_request: IRequest, env: any, _ctx: ExecutionContext, key: string) {
   const object = await env.CREATIONS_BUCKET.get(key);
 
   if (object === null) {
