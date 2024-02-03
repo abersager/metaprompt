@@ -1,13 +1,8 @@
 import { IRequest, Router } from 'itty-router'
 
 import { uploadImage, getImage } from './images'
-import { infer } from './infer'
-import { handleOptions } from './cors'
 
 const router = Router()
-
-router.options('*', handleOptions)
-router.post('/infer', infer)
 
 router.get('/convert/:url+', async (request: IRequest, env: Env, ctx) => {
   let url = decodeURIComponent(request.params.url)
