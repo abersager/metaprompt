@@ -1,4 +1,4 @@
-name = "synesthesai-cloudflare"
+name = "synesthesai-worker"
 main = "src/index.ts"
 compatibility_date = "2024-01-29"
 

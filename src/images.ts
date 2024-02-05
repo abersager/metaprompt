@@ -25,26 +25,31 @@ export async function uploadImage(request: IRequest, env: Env, _ctx: ExecutionCo
     return new Response('Invalid URL', { status: 400 });
   }
 
-  const response = await fetch(urlString);
-  const arrayBuffer = await response.arrayBuffer();
-  const imageArray = new Uint8Array(arrayBuffer);
-  const image = photon.PhotonImage.new_from_byteslice(imageArray)
+  try {
+    const response = await fetch(urlString);
+    const arrayBuffer = await response.arrayBuffer();
+    const imageArray = new Uint8Array(arrayBuffer);
+    const image = photon.PhotonImage.new_from_byteslice(imageArray)
 
-  const jpeg = image.get_bytes_jpeg(90);
-  const thumbnail = photon.resize(image, 256, 256, photon.SamplingFilter.Lanczos3)
-  const thumbnailJpeg = thumbnail.get_bytes_jpeg(80);
+    const jpeg = image.get_bytes_jpeg(90);
+    const thumbnail = photon.resize(image, 256, 256, photon.SamplingFilter.Lanczos3)
+    const thumbnailJpeg = thumbnail.get_bytes_jpeg(80);
 
-  const responses = await Promise.all([
-    await env.CREATIONS_BUCKET.put(`${key}.png`, imageArray),
-    await env.CREATIONS_BUCKET.put(`${key}.jpg`, jpeg),
-    await env.CREATIONS_BUCKET.put(`${key}_thumb.jpg`, thumbnailJpeg),
-  ])
+    const responses = await Promise.all([
+      await env.CREATIONS_BUCKET.put(`${key}/original.png`, imageArray),
+      await env.CREATIONS_BUCKET.put(`${key}/fullsize.jpg`, jpeg),
+      await env.CREATIONS_BUCKET.put(`${key}/thumbnail.jpg`, thumbnailJpeg),
+    ])
 
-  return {
-    key,
-    original: `${key}.png`,
-    fullsize: `${key}.jpg`,
-    thumbnail: `${key}_thumb.jpg`,
+    return Response.json({
+      key,
+      original: `${key}/original.png`,
+      fullsize: `${key}/fullsize.jpg`,
+      thumbnail: `${key}/thumbnail.jpg`,
+    })
+  } catch (e) {
+    console.error(e)
+    return new Response('Error', { status: 500 })
   }
 }
 
