@@ -6,6 +6,8 @@ interface Env {
   SYNESTHESAI_FRONTEND_URLS: string
 }
 
+type Format = 'original' | 'thumbnail'
+
 type LyricsLine = {
   startTimeMs: number
   words: string
