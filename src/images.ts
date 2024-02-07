@@ -56,9 +56,15 @@ export async function getImage(_request: IRequest, env: any, _ctx: ExecutionCont
     return new Response('Object Not Found', { status: 404 });
   }
 
+  let [filename, format, extension] = key.split(/\/|\./)
+  if (format === 'thumbnail') {
+    filename += '-thumbnail'
+  }
+
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
+  headers.set('content-disposition', `attachment; filename="${filename}.${extension}"`)
 
   return new Response(object.body, {
     headers,
