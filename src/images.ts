@@ -6,7 +6,7 @@ const maxAge = 60 * 60 * 24 * 30
 
 // Example: https://fal-cdn.batuhan-941.workers.dev/files/koala/HEVbZvoQCYYK2JFHSbAhQ.jpeg
 function getKeyFromFalImageUrl(urlString: string) {
-  const url = urlString.match(/([a-zA-Z0-9_]+)\.jpeg$/)
+  const url = urlString.match(/([a-zA-Z0-9_-]+)\.jpeg$/)
   if (!url) {
     return null
   }
