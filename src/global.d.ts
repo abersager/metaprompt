@@ -4,6 +4,11 @@ interface Env {
   REPLICATE_API_TOKEN: string
   AUTH_SECRET: string
   SYNESTHESAI_FRONTEND_URLS: string
+  FAL_KEY: string
+  SPOTIFY_CLIENT_ID: string
+  SPOTIFY_CLIENT_SECRET: string
+  SYNESTHESAI_WORKER_URL: string
+  users: DurableObjectNamespace
 }
 
 type Format = 'original' | 'thumbnail'
@@ -32,12 +37,22 @@ type PromptOptions = {
 
 type PromptData = {
   prompt: string
-  modifiers: {
-    [key: string]: string
-  } | string
+  modifiers:
+    | {
+        [key: string]: string
+      }
+    | string
 }
 
 type ImageResponse = {
   key: string
   image: Uint8Array
+}
+
+type AuthInfo = {
+  access_token: string
+  token_type: 'Bearer'
+  expires_in: number
+  refresh_token: string
+  scope: string
 }

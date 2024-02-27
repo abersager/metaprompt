@@ -15,8 +15,10 @@
   },
   "dependencies": {
     "@silvia-odwyer/photon-node": "0.3.3",
+    "@spotify/web-api-ts-sdk": "^1.2.0",
     "itty-router": "^4.0.27",
     "openai": "^4.26.0",
+    "query-string": "^9.0.0",
     "replicate": "^0.25.2",
     "text-encoder": "^0.0.4"
   }

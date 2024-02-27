@@ -1,6 +1,9 @@
 import { IRequest, Router } from 'itty-router'
 
 import { uploadImage, getImage } from './images'
+export { User } from './users'
+import { registerSpotifyUser } from './users'
+import { authorize, authorizeCallback } from './auth'
 
 const router = Router()
 
@@ -16,11 +19,16 @@ router.get('/image/:key+', async (request: IRequest, env: Env, ctx) => {
   return await getImage(request, env, ctx, key)
 })
 
+router.get('/users/:userId', registerSpotifyUser)
+
+router.get('/authorize', authorize)
+
+router.get('/authorize/callback', authorizeCallback)
 
 router.all('*', () => new Response('Not found', { status: 404 }))
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return router.handle(request, env, ctx)
-  }
-};
+  },
+}
