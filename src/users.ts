@@ -7,12 +7,13 @@ import { getSpotifyApi } from './auth'
 import * as fal from '@fal-ai/serverless-client'
 import { RealtimeConnection } from '@fal-ai/serverless-client/src/realtime'
 import { encode } from '@msgpack/msgpack'
+import { getOrCreateTrack } from './track'
 
 function randomSeed() {
   return Math.floor(Math.random() * 10000000).toFixed(0)
 }
 
-export async function registerSpotifyUser(request: IRequest, env: Env, context: ExecutionContext) {
+export async function connect(request: IRequest, env: Env, context: ExecutionContext) {
   let userId = decodeURIComponent(request.params.userId)
   console.log(`Registering user ${userId}`)
   const id = env.users.idFromString(userId)
@@ -58,7 +59,7 @@ export class User implements DurableObject {
     this.falConnection = fal.realtime.connect('fal-ai/fast-lightning-sdxl', {
       connectionKey: 'lightning-sdxl',
       throttleInterval: 64,
-      onResult: this.onFalResult.bind(this),
+      onResult: this.onCreateResult.bind(this),
     })
   }
 
@@ -94,6 +95,7 @@ export class User implements DurableObject {
     // Accept our end of the WebSocket. This tells the runtime that we'll be terminating the
     // WebSocket in JavaScript, not sending it elsewhere.
     webSocket.accept()
+    // this.state.acceptWebSocket(webSocket)
 
     // Create our session and add it to the sessions list.
     // We don't send any messages to the client until it has sent us the initial user info
@@ -140,7 +142,6 @@ export class User implements DurableObject {
     await this.scheduleAlarm()
   }
 
-  // broadcast() broadcasts a message to all clients.
   broadcast(message: string | object) {
     message = encode(message)
 
@@ -177,42 +178,57 @@ export class User implements DurableObject {
 
   async alarm() {
     this.scheduleAlarm()
+    try {
+      await this.update()
+    } catch (e) {
+      console.error('error updating', e)
+    }
+  }
+
+  async update() {
     const current = (await this.storage.get('current')) as Track | undefined
     const newValues = await currentlyPlaying(await this.getSdk())
     if (newValues.current && hasChanged(current, newValues.current)) {
       await this.storage.put('current', newValues.current)
-      console.log('broadcasting track change')
+      await getOrCreateTrack(this.env.tracks, newValues.current)
+
       this.broadcast({
         type: 'current',
-        artistName: newValues.current.artists.map((x) => x.name).join(', '),
-        trackName: newValues.current.name,
+        track: newValues.current,
       })
-
-      const sdk = await this.getSdk()
-      const promptOptions = await getPromptOptions(sdk, newValues.current)
-      const metadata = await fetchSongMetadata(this.env.GENIUS_ACCESS_TOKEN, newValues.current)
-
-      const sdxlPromptData = await inferPrompt(this.env.OPENAI_API_KEY, {
-        ...promptOptions,
-        ...metadata,
+      this.create(newValues.current)
+    } else if (!newValues.current) {
+      this.broadcast({
+        type: 'current',
+        track: undefined,
       })
-      const modifiers =
-        typeof sdxlPromptData.modifiers === 'string' ? sdxlPromptData.modifiers : Object.values(sdxlPromptData.modifiers).join(', ')
-      const prompt = `${sdxlPromptData.prompt} modifiers: ${modifiers}`
-      console.log(prompt)
-
-      const falInput = {
-        ...INPUT_DEFAULTS,
-        prompt: prompt,
-        seed: Number(randomSeed()),
-      }
-      console.log('sending to fal', falInput)
-      this.falConnection.send(falInput)
     }
   }
 
-  async onFalResult(result: any) {
+  async create(track: Track) {
+    const promptOptions = await getPromptOptions(await this.getSdk(), track)
+    const metadata = await fetchSongMetadata(this.env.GENIUS_ACCESS_TOKEN, track)
+
+    const sdxlPromptData = await inferPrompt(this.env.OPENAI_API_KEY, {
+      ...promptOptions,
+      ...metadata,
+    })
+    const modifiers =
+      typeof sdxlPromptData.modifiers === 'string' ? sdxlPromptData.modifiers : Object.values(sdxlPromptData.modifiers).join(', ')
+    const prompt = `${sdxlPromptData.prompt} modifiers: ${modifiers}`
+    console.log(prompt)
+
+    const falInput = {
+      ...INPUT_DEFAULTS,
+      prompt: prompt,
+      seed: Number(randomSeed()),
+    }
+    console.log('sending to fal', falInput)
+    this.falConnection.send(falInput)
+  }
+
+  async onCreateResult(result: any) {
     console.log('fal result', result)
-    this.broadcast({ type: 'creation', images: result.images })
+    this.broadcast({ type: 'creation', ...result })
   }
 }

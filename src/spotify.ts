@@ -8,10 +8,17 @@ type CurrentAndNext = {
 export async function currentlyPlaying(sdk: SpotifyApi): Promise<CurrentAndNext> {
   const { currently_playing, queue } = await sdk.player.getUsersQueue()
 
-  return {
-    current: currently_playing && currently_playing.type === 'track' ? (currently_playing as Track) : undefined,
-    next: queue.length && queue[0].type === 'track' ? (queue[0] as Track) : undefined,
+  let current: Track | undefined
+  if (currently_playing && currently_playing.type === 'track' && hasChanged(currently_playing as Track, current)) {
+    current = currently_playing as Track
   }
+
+  let next: Track | undefined
+  if (queue.length && queue[0].type === 'track') {
+    next = queue[0] as Track
+  }
+
+  return { current, next }
 }
 
 export function hasChanged(previous: Track | undefined, now: Track | undefined) {

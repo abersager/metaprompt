@@ -10,6 +10,8 @@ interface Env {
   SYNESTHESAI_WORKER_URL: string
   GENIUS_ACCESS_TOKEN: string
   users: DurableObjectNamespace
+  tracks: DurableObjectNamespace
+  creations: DurableObjectNamespace
 }
 
 type Format = 'original' | 'thumbnail'
@@ -48,7 +50,7 @@ type PromptData = {
   explanation: string
 }
 
-type ImageResponse = {
+type CreationData = {
   key: string
   image: Uint8Array
 }

@@ -8,6 +8,8 @@ SYNESTHESAI_FRONTEND_URLS = ["https://synesthesai-react.pages.dev", "https://syn
 [durable_objects]
 bindings = [
   { name = "users", class_name = "User" },
+  { name = "tracks", class_name = "Track" },
+  { name = "creations", class_name = "Creation" },
 ]
 
 [[r2_buckets]]

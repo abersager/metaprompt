@@ -2,7 +2,9 @@ import { IRequest, Router } from 'itty-router'
 
 import { uploadImage, getImage } from './images'
 export { User } from './users'
-import { registerSpotifyUser } from './users'
+export { Track } from './track'
+export { Creation } from './creation'
+import { connect } from './users'
 import { authorize, authorizeCallback } from './auth'
 
 const router = Router()
@@ -19,7 +21,7 @@ router.get('/image/:key+', async (request: IRequest, env: Env, ctx) => {
   return await getImage(request, env, ctx, key)
 })
 
-router.get('/users/:userId', registerSpotifyUser)
+router.get('/users/:userId', connect)
 
 router.get('/authorize', authorize)
 

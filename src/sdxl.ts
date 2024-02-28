@@ -1,7 +1,5 @@
 import { IRequest } from 'itty-router'
-import Replicate from 'replicate'
-
-const model = 'lucataco/sdxl-lcm:fbbd475b1084de80c47c35bfe4ae64b964294aa7e237e6537eed938cfd24903d'
+import * as fal from '@fal-ai/serverless-client'
 
 export async function inferImage(request: IRequest, env: Env, promptData: PromptData): Promise<string[]> {
   const modifiers = typeof promptData.modifiers === 'string' ? promptData.modifiers : Object.values(promptData.modifiers).join(', ')
@@ -12,5 +10,5 @@ export async function inferImage(request: IRequest, env: Env, promptData: Prompt
 
   const replicate = new Replicate({ auth: env.REPLICATE_API_TOKEN })
 
-  return await replicate.run(model, { input }) as string[]
+  return (await replicate.run(model, { input })) as string[]
 }
