@@ -8,6 +8,7 @@ interface Env {
   SPOTIFY_CLIENT_ID: string
   SPOTIFY_CLIENT_SECRET: string
   SYNESTHESAI_WORKER_URL: string
+  GENIUS_ACCESS_TOKEN: string
   users: DurableObjectNamespace
 }
 
@@ -32,7 +33,9 @@ type PromptOptions = {
   trackName: string
   artistName: string
   artistGenres: string
-  lyrics?: Lyrics
+  lyrics?: string
+  artistComment?: string
+  comments?: string[]
 }
 
 type PromptData = {
@@ -47,12 +50,4 @@ type PromptData = {
 type ImageResponse = {
   key: string
   image: Uint8Array
-}
-
-type AuthInfo = {
-  access_token: string
-  token_type: 'Bearer'
-  expires_in: number
-  refresh_token: string
-  scope: string
 }

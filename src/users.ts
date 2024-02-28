@@ -1,5 +1,9 @@
 import { IRequest } from 'itty-router'
-import { SpotifyApi, Track } from '@spotify/web-api-ts-sdk'
+import { AccessToken, SpotifyApi, Track } from '@spotify/web-api-ts-sdk'
+import { currentlyPlaying, getPromptOptions, hasChanged } from './spotify'
+import { inferPrompt } from './prompt-inference'
+import { fetchSongMetadata } from './genius'
+import { getSpotifyApi } from './auth'
 
 export async function registerSpotifyUser(request: IRequest, env: Env, context: ExecutionContext) {
   let userId = decodeURIComponent(request.params.userId)
@@ -19,11 +23,14 @@ export class User implements DurableObject {
   state: DurableObjectState
   storage: DurableObjectStorage
   sessions: Session[]
+  sdk?: SpotifyApi
+  env: Env
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state
     this.storage = state.storage
     this.sessions = []
+    this.env = env
   }
 
   async fetch(request: IRequest) {
@@ -33,6 +40,8 @@ export class User implements DurableObject {
       await this.storage.put('authInfo', authInfo)
       return new Response('OK')
     }
+
+    console.log(request)
 
     if (request.headers.get('Upgrade') != 'websocket') {
       return new Response('expected websocket', { status: 400 })
@@ -121,6 +130,14 @@ export class User implements DurableObject {
     })
   }
 
+  async getSdk() {
+    if (!this.sdk) {
+      const authInfo = (await this.storage.get('authInfo')) as AccessToken
+      this.sdk = getSpotifyApi(this.env.SPOTIFY_CLIENT_ID, this.env.SPOTIFY_CLIENT_SECRET, authInfo)
+    }
+    return this.sdk
+  }
+
   async scheduleAlarm() {
     if (this.sessions.length && !(await this.storage.get('alarm'))) {
       this.storage.setAlarm(Date.now() + 4000)
@@ -128,15 +145,21 @@ export class User implements DurableObject {
   }
 
   async alarm() {
-    console.log('Alarm!')
-    console.log(await this.storage.list())
-    const message = await this.storage.get('lastMessage')
-    const authInfo = await this.storage.get('authInfo')
-    console.log(authInfo)
-    if (authInfo) {
-      this.broadcast(authInfo)
-    }
-
     this.scheduleAlarm()
+    const current = (await this.storage.get('current')) as Track | undefined
+    const newValues = await currentlyPlaying(await this.getSdk())
+    if (newValues.current && hasChanged(current, newValues.current)) {
+      await this.storage.put('current', newValues.current)
+      this.broadcast({ type: 'current', artistName: newValues.current.artists.join(', '), trackName: newValues.current.name })
+
+      const sdk = await this.getSdk()
+      const promptOptions = await getPromptOptions(sdk, newValues.current)
+      const metadata = await fetchSongMetadata(this.env.GENIUS_ACCESS_TOKEN, newValues.current)
+      const prompt = await inferPrompt(this.env.OPENAI_API_KEY, {
+        ...promptOptions,
+        ...metadata,
+      })
+      console.log(prompt)
+    }
   }
 }
