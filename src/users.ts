@@ -6,7 +6,7 @@ import { fetchSongMetadata } from './genius'
 import { getSpotifyApi } from './auth'
 import * as fal from '@fal-ai/serverless-client'
 import { RealtimeConnection } from '@fal-ai/serverless-client/src/realtime'
-import { decode, encode } from '@msgpack/msgpack'
+import { encode } from '@msgpack/msgpack'
 
 function randomSeed() {
   return Math.floor(Math.random() * 10000000).toFixed(0)
@@ -17,8 +17,13 @@ export async function registerSpotifyUser(request: IRequest, env: Env, context: 
   console.log(`Registering user ${userId}`)
   const id = env.users.idFromString(userId)
   console.log('connected', id)
-  const user = env.users.get(id)
-  return user.fetch(request)
+  try {
+    const user = env.users.get(id)
+    return user.fetch(request)
+  } catch (e) {
+    console.error(e)
+    return new Response('Error', { status: 500 })
+  }
 }
 
 type Session = {
@@ -46,6 +51,7 @@ export class User implements DurableObject {
   constructor(state: DurableObjectState, env: Env) {
     this.state = state
     this.storage = state.storage
+    console.log('clearing sessions')
     this.sessions = []
     this.env = env
     fal.config({ credentials: env.FAL_KEY })
@@ -93,6 +99,7 @@ export class User implements DurableObject {
     // We don't send any messages to the client until it has sent us the initial user info
     // message. Until then, we will queue messages in `session.blockedMessages`.
     let session: Session = { webSocket }
+    console.log('adding session')
     this.sessions.push(session)
 
     webSocket.addEventListener('message', (message) => {
@@ -109,8 +116,6 @@ export class User implements DurableObject {
 
         let data = JSON.parse(message.data as string)
 
-        this.broadcast(data)
-
         // Save message.
         this.storage.put('lastMessage', data)
       } catch (error: any) {
@@ -124,7 +129,10 @@ export class User implements DurableObject {
     // a quit message.
     let closeOrErrorHandler = (_event: CloseEvent | ErrorEvent) => {
       session.quit = true
+      const before = this.sessions.length
       this.sessions = this.sessions.filter((member) => member !== session)
+      const after = this.sessions.length
+      console.log(`removed session, ${before} -> ${after}`)
     }
     webSocket.addEventListener('close', closeOrErrorHandler)
     webSocket.addEventListener('error', closeOrErrorHandler)
@@ -159,8 +167,11 @@ export class User implements DurableObject {
   }
 
   async scheduleAlarm() {
-    if (this.sessions.length && !(await this.storage.get('alarm'))) {
+    if (this.sessions.length) {
+      console.log('scheduling alarm')
       this.storage.setAlarm(Date.now() + 4000)
+    } else {
+      console.log('no sessions, not scheduling alarm')
     }
   }
 
