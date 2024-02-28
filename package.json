@@ -18,6 +18,8 @@
     "wrangler": "^3.26.0"
   },
   "dependencies": {
+    "@fal-ai/serverless-client": "^0.8.6",
+    "@msgpack/msgpack": "^3.0.0-beta2",
     "@silvia-odwyer/photon-node": "0.3.3",
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "axios": "^1.6.7",

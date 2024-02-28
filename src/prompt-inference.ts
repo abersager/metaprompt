@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 
-export async function inferPrompt(openaiApiKey: string, promptOptions: PromptOptions) {
+export async function inferPrompt(openaiApiKey: string, promptOptions: PromptOptions): Promise<PromptData> {
   const openai = new OpenAI({ apiKey: openaiApiKey })
 
   console.log('prompt options:')

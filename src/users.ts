@@ -4,6 +4,13 @@ import { currentlyPlaying, getPromptOptions, hasChanged } from './spotify'
 import { inferPrompt } from './prompt-inference'
 import { fetchSongMetadata } from './genius'
 import { getSpotifyApi } from './auth'
+import * as fal from '@fal-ai/serverless-client'
+import { RealtimeConnection } from '@fal-ai/serverless-client/src/realtime'
+import { decode, encode } from '@msgpack/msgpack'
+
+function randomSeed() {
+  return Math.floor(Math.random() * 10000000).toFixed(0)
+}
 
 export async function registerSpotifyUser(request: IRequest, env: Env, context: ExecutionContext) {
   let userId = decodeURIComponent(request.params.userId)
@@ -19,18 +26,34 @@ type Session = {
   quit?: boolean
 }
 
+const INPUT_DEFAULTS = {
+  _force_msgpack: new Uint8Array([]),
+  enable_safety_checker: false,
+  image_size: 'square_hd',
+  sync_mode: true,
+  num_images: 1,
+  num_inference_steps: '4',
+}
+
 export class User implements DurableObject {
   state: DurableObjectState
   storage: DurableObjectStorage
   sessions: Session[]
   sdk?: SpotifyApi
   env: Env
+  falConnection: RealtimeConnection<any>
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state
     this.storage = state.storage
     this.sessions = []
     this.env = env
+    fal.config({ credentials: env.FAL_KEY })
+    this.falConnection = fal.realtime.connect('fal-ai/fast-lightning-sdxl', {
+      connectionKey: 'lightning-sdxl',
+      throttleInterval: 64,
+      onResult: this.onFalResult.bind(this),
+    })
   }
 
   async fetch(request: IRequest) {
@@ -111,10 +134,7 @@ export class User implements DurableObject {
 
   // broadcast() broadcasts a message to all clients.
   broadcast(message: string | object) {
-    // Apply JSON if we weren't given a string to start with.
-    if (typeof message !== 'string') {
-      message = JSON.stringify(message)
-    }
+    message = encode(message)
 
     // Iterate over all the sessions sending them messages.
     this.sessions = this.sessions.filter((session) => {
@@ -150,16 +170,38 @@ export class User implements DurableObject {
     const newValues = await currentlyPlaying(await this.getSdk())
     if (newValues.current && hasChanged(current, newValues.current)) {
       await this.storage.put('current', newValues.current)
-      this.broadcast({ type: 'current', artistName: newValues.current.artists.join(', '), trackName: newValues.current.name })
+      console.log('broadcasting track change')
+      this.broadcast({
+        type: 'current',
+        artistName: newValues.current.artists.map((x) => x.name).join(', '),
+        trackName: newValues.current.name,
+      })
 
       const sdk = await this.getSdk()
       const promptOptions = await getPromptOptions(sdk, newValues.current)
       const metadata = await fetchSongMetadata(this.env.GENIUS_ACCESS_TOKEN, newValues.current)
-      const prompt = await inferPrompt(this.env.OPENAI_API_KEY, {
+
+      const sdxlPromptData = await inferPrompt(this.env.OPENAI_API_KEY, {
         ...promptOptions,
         ...metadata,
       })
+      const modifiers =
+        typeof sdxlPromptData.modifiers === 'string' ? sdxlPromptData.modifiers : Object.values(sdxlPromptData.modifiers).join(', ')
+      const prompt = `${sdxlPromptData.prompt} modifiers: ${modifiers}`
       console.log(prompt)
+
+      const falInput = {
+        ...INPUT_DEFAULTS,
+        prompt: prompt,
+        seed: Number(randomSeed()),
+      }
+      console.log('sending to fal', falInput)
+      this.falConnection.send(falInput)
     }
+  }
+
+  async onFalResult(result: any) {
+    console.log('fal result', result)
+    this.broadcast({ type: 'creation', images: result.images })
   }
 }

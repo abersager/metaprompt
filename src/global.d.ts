@@ -45,6 +45,7 @@ type PromptData = {
         [key: string]: string
       }
     | string
+  explanation: string
 }
 
 type ImageResponse = {
