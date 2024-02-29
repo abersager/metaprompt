@@ -5,13 +5,9 @@ import { inferPrompt } from './prompt-inference'
 import { fetchSongMetadata } from './genius'
 import { getSpotifyApi } from './auth'
 import * as fal from '@fal-ai/serverless-client'
-import { RealtimeConnection } from '@fal-ai/serverless-client/src/realtime'
 import { encode } from '@msgpack/msgpack'
 import { getOrCreateTrack } from './track'
-
-function randomSeed() {
-  return Math.floor(Math.random() * 10000000).toFixed(0)
-}
+import { inferImage } from './image-inference'
 
 export async function connect(request: IRequest, env: Env, context: ExecutionContext) {
   let userId = decodeURIComponent(request.params.userId)
@@ -32,22 +28,12 @@ type Session = {
   quit?: boolean
 }
 
-const INPUT_DEFAULTS = {
-  _force_msgpack: new Uint8Array([]),
-  enable_safety_checker: false,
-  image_size: 'square_hd',
-  sync_mode: true,
-  num_images: 1,
-  num_inference_steps: '4',
-}
-
 export class User implements DurableObject {
   state: DurableObjectState
   storage: DurableObjectStorage
   sessions: Session[]
   sdk?: SpotifyApi
   env: Env
-  falConnection: RealtimeConnection<any>
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state
@@ -56,11 +42,6 @@ export class User implements DurableObject {
     this.sessions = []
     this.env = env
     fal.config({ credentials: env.FAL_KEY })
-    this.falConnection = fal.realtime.connect('fal-ai/fast-lightning-sdxl', {
-      connectionKey: 'lightning-sdxl',
-      throttleInterval: 64,
-      onResult: this.onCreateResult.bind(this),
-    })
   }
 
   async fetch(request: IRequest) {
@@ -212,22 +193,9 @@ export class User implements DurableObject {
       ...promptOptions,
       ...metadata,
     })
-    const modifiers =
-      typeof sdxlPromptData.modifiers === 'string' ? sdxlPromptData.modifiers : Object.values(sdxlPromptData.modifiers).join(', ')
-    const prompt = `${sdxlPromptData.prompt} modifiers: ${modifiers}`
-    console.log(prompt)
 
-    const falInput = {
-      ...INPUT_DEFAULTS,
-      prompt: prompt,
-      seed: Number(randomSeed()),
-    }
-    console.log('sending to fal', falInput)
-    this.falConnection.send(falInput)
-  }
-
-  async onCreateResult(result: any) {
-    console.log('fal result', result)
+    const result: any = await inferImage(sdxlPromptData)
+    console.log(result)
     this.broadcast({ type: 'creation', ...result })
   }
 }

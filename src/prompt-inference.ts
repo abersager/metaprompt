@@ -39,7 +39,6 @@ async function inferPromptOpenAI(apiKey: string, model: string, content: string)
 }
 
 async function inferPromptGroq(apiKey: string, model: string, content: string): Promise<PromptData> {
-  console.log(apiKey)
   const groq = new Groq({ apiKey })
 
   const chatCompletion = await groq.chat.completions.create({
