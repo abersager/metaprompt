@@ -9,6 +9,7 @@ interface Env {
   SPOTIFY_CLIENT_SECRET: string
   SYNESTHESAI_WORKER_URL: string
   GENIUS_ACCESS_TOKEN: string
+  GROQ_API_KEY: string
   users: DurableObjectNamespace
   tracks: DurableObjectNamespace
   creations: DurableObjectNamespace

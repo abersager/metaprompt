@@ -169,7 +169,6 @@ export class User implements DurableObject {
 
   async scheduleAlarm() {
     if (this.sessions.length) {
-      console.log('scheduling alarm')
       this.storage.setAlarm(Date.now() + 4000)
     } else {
       console.log('no sessions, not scheduling alarm')
@@ -209,7 +208,7 @@ export class User implements DurableObject {
     const promptOptions = await getPromptOptions(await this.getSdk(), track)
     const metadata = await fetchSongMetadata(this.env.GENIUS_ACCESS_TOKEN, track)
 
-    const sdxlPromptData = await inferPrompt(this.env.OPENAI_API_KEY, {
+    const sdxlPromptData = await inferPrompt(this.env, {
       ...promptOptions,
       ...metadata,
     })

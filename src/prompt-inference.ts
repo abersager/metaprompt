@@ -1,8 +1,14 @@
 import OpenAI from 'openai'
+import Groq from 'groq-sdk'
 
-export async function inferPrompt(openaiApiKey: string, promptOptions: PromptOptions): Promise<PromptData> {
-  const openai = new OpenAI({ apiKey: openaiApiKey })
+const inferenceEngines = {
+  'gpt-4-0125-preview': 'openai',
+  'mixtral-8x7b-32768': 'groq',
+}
 
+const model = 'mixtral-8x7b-32768'
+
+export async function inferPrompt(env: Env, promptOptions: PromptOptions): Promise<PromptData> {
   console.log('prompt options:')
   console.log(promptOptions)
 
@@ -10,10 +16,35 @@ export async function inferPrompt(openaiApiKey: string, promptOptions: PromptOpt
   console.log('content:')
   console.log(content)
 
+  const inferenceEngine = inferenceEngines[model]
+  if (inferenceEngine === 'openai') {
+    return inferPromptOpenAI(env.OPENAI_API_KEY, model, content)
+  } else if (inferenceEngine === 'groq') {
+    return inferPromptGroq(env.GROQ_API_KEY, model, content)
+  } else {
+    throw new Error(`Inference engine not found for model ${model}`)
+  }
+}
+
+async function inferPromptOpenAI(apiKey: string, model: string, content: string): Promise<PromptData> {
+  const openai = new OpenAI({ apiKey })
+
   const chatCompletion = await openai.chat.completions.create({
     messages: [{ role: 'user', content }],
     response_format: { type: 'json_object' },
-    model: 'gpt-4-0125-preview',
+    model,
+  })
+
+  return JSON.parse(chatCompletion.choices[0].message.content || '{}')
+}
+
+async function inferPromptGroq(apiKey: string, model: string, content: string): Promise<PromptData> {
+  console.log(apiKey)
+  const groq = new Groq({ apiKey })
+
+  const chatCompletion = await groq.chat.completions.create({
+    messages: [{ role: 'user', content }],
+    model,
   })
 
   return JSON.parse(chatCompletion.choices[0].message.content || '{}')
