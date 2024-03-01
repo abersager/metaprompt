@@ -18,5 +18,9 @@ bucket_name = "synesthesai-creations"
 preview_bucket_name = "synesthesai-creations-dev"
 
 [[migrations]]
-tag = "v1" # Should be unique for each entry
+tag = "v1"
 new_classes = ["User"]
+
+[[migrations]]
+tag = "v2"
+new_classes = ["Creation", "Track"]

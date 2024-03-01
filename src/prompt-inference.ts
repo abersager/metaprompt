@@ -13,8 +13,8 @@ export async function inferPrompt(env: Env, promptOptions: PromptOptions): Promi
   console.log(promptOptions)
 
   const content = template(promptOptions)
-  console.log('content:')
-  console.log(content)
+  // console.log('content:')
+  // console.log(content)
 
   const inferenceEngine = inferenceEngines[model]
   if (inferenceEngine === 'openai') {
@@ -52,9 +52,9 @@ async function inferPromptGroq(apiKey: string, model: string, content: string): 
 function template(promptOptions: PromptOptions) {
   return `
 Create a prompt for the SDXL text-to-image generator with a maximum of 30 words.
-The image resulting from the prompt should depict a typical listener's emotional response to "${promptOptions.trackName}" by ${
-    promptOptions.artistName
-  }.
+The image resulting from the prompt should depict a typical listener's emotional response to "${
+    promptOptions.trackName
+  }" by ${promptOptions.artistName}.
 Avoid instructive language.
 Avoid title or artist name.
 Avoid mentioning that this is about a song.

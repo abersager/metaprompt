@@ -16,8 +16,13 @@ const falDefaults = {
   num_inference_steps: '4',
 }
 
-export const inferImage = async (promptData: PromptData): Promise<any> => {
-  const modifiers = typeof promptData.modifiers === 'string' ? promptData.modifiers : Object.values(promptData.modifiers).join(', ')
+type InferImageResult = {
+  images: FalImageData[]
+}
+
+export const inferImage = async (promptData: PromptData): Promise<InferImageResult> => {
+  const modifiers =
+    typeof promptData.modifiers === 'string' ? promptData.modifiers : Object.values(promptData.modifiers).join(', ')
   const prompt = `${promptData.prompt} ${modifiers}`
   console.log(prompt)
 

@@ -52,6 +52,18 @@ type PromptData = {
 }
 
 type CreationData = {
-  key: string
-  image: Uint8Array
+  id: string
+  frames: Frame[]
+  trackId: string
+}
+
+type Frame = {
+  url: string
+}
+
+type FalImageData = {
+  url: string
+  width: number
+  height: number
+  content_type: string
 }

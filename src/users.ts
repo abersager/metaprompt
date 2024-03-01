@@ -6,7 +6,7 @@ import { fetchSongMetadata } from './genius'
 import { getSpotifyApi } from './auth'
 import * as fal from '@fal-ai/serverless-client'
 import { encode } from '@msgpack/msgpack'
-import { getOrCreateTrack } from './track'
+import { getTrackApi, TrackApi } from './track'
 import { inferImage } from './image-inference'
 
 export async function connect(request: IRequest, env: Env, context: ExecutionContext) {
@@ -30,12 +30,24 @@ type Session = {
   quit?: boolean
 }
 
+type Message = {
+  type: 'current' | 'creation'
+  [key: string]: any
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binString = atob(base64.slice(24))
+  return Uint8Array.from(binString, (c) => c.charCodeAt(0))
+}
+
 export class User implements DurableObject {
   state: DurableObjectState
   storage: DurableObjectStorage
   sessions: Session[]
   sdk?: SpotifyApi
   env: Env
+  trackApi: TrackApi
+  lastMessages: { [key: string]: Message } = {}
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state
@@ -43,6 +55,7 @@ export class User implements DurableObject {
     console.log('clearing sessions')
     this.sessions = []
     this.env = env
+    this.trackApi = getTrackApi(env)
     fal.config({ credentials: env.FAL_KEY })
   }
 
@@ -50,11 +63,17 @@ export class User implements DurableObject {
     let url = new URL(request.url)
     if (url.pathname === '/login') {
       const authInfo = await request.json()
+      console.log('login authInfo', authInfo)
       await this.storage.put('authInfo', authInfo)
+
+      console.log(await this.storage.get('authInfo'))
+
       return new Response('OK')
     }
 
-    console.log(request)
+    if (url.pathname === '/authinfo') {
+      return Response.json(await this.storage.get('authInfo'))
+    }
 
     if (request.headers.get('Upgrade') != 'websocket') {
       return new Response('expected websocket', { status: 400 })
@@ -87,6 +106,8 @@ export class User implements DurableObject {
     console.log('adding session')
     this.sessions.push(session)
 
+    this.replay(session)
+
     webSocket.addEventListener('message', (message) => {
       try {
         if (session.quit) {
@@ -112,7 +133,9 @@ export class User implements DurableObject {
 
     // On "close" and "error" events, remove the WebSocket from the sessions list and broadcast
     // a quit message.
-    let closeOrErrorHandler = (_event: CloseEvent | ErrorEvent) => {
+    let closeOrErrorHandler = (event: CloseEvent | ErrorEvent) => {
+      console.log(event.type)
+      console.log(event)
       session.quit = true
       const before = this.sessions.length
       this.sessions = this.sessions.filter((member) => member !== session)
@@ -122,16 +145,24 @@ export class User implements DurableObject {
     webSocket.addEventListener('close', closeOrErrorHandler)
     webSocket.addEventListener('error', closeOrErrorHandler)
 
-    await this.scheduleAlarm()
+    await this.alarm()
   }
 
-  broadcast(message: string | object) {
-    message = encode(message)
+  replay(session: Session) {
+    for (const message of Object.values(this.lastMessages)) {
+      session.webSocket.send(encode(message))
+    }
+  }
+
+  broadcast(message: Message) {
+    this.lastMessages[message.type] = message
+
+    const encodedMessage = encode(message)
 
     // Iterate over all the sessions sending them messages.
     this.sessions = this.sessions.filter((session) => {
       try {
-        session.webSocket.send(message as string)
+        session.webSocket.send(encodedMessage)
         return true
       } catch (err) {
         // Whoops, this connection is dead. Remove it from the list and arrange to notify
@@ -172,13 +203,26 @@ export class User implements DurableObject {
     const newValues = await currentlyPlaying(await this.getSdk())
     if (newValues.current && hasChanged(current, newValues.current)) {
       await this.storage.put('current', newValues.current)
-      await getOrCreateTrack(this.env.tracks, newValues.current)
+      await this.trackApi.create(newValues.current)
+
+      console.log('saved:', JSON.stringify(await this.trackApi.get(newValues.current.id), null, 2))
 
       this.broadcast({
         type: 'current',
         track: newValues.current,
       })
-      this.create(newValues.current)
+
+      console.log(`new track: ${newValues.current.id}`)
+      const creations = await this.trackApi.getCreations(newValues.current.id)
+      console.log(JSON.stringify(creations, null, 2))
+      if (creations.length) {
+        this.broadcast({
+          type: 'creation',
+          creation: creations[0],
+        })
+      } else {
+        this.create(newValues.current)
+      }
     } else if (!newValues.current) {
       this.broadcast({
         type: 'current',
@@ -197,13 +241,39 @@ export class User implements DurableObject {
     })
 
     const result: any = await inferImage(sdxlPromptData)
-    console.log(result)
-    this.broadcast({ type: 'creation', ...result })
+    await this.trackApi.createCreation(track.id, result.images[0])
+
+    const creationData = {
+      frames: [{ image: result.images[0] }],
+      trackId: track.id,
+    }
+
+    // console.log(await this.trackApi.getCreations(track.id))
+    this.broadcast({ type: 'creation', creation: creationData })
+
+    // try {
+    //   const encoded = {
+    //     ...result,
+    //     images: result.images.map((imageObject: any) => {
+    //       return {
+    //         width: imageObject.width,
+    //         height: imageObject.height,
+    //         content_type: imageObject.content_type,
+    //         content: encode(base64ToBytes(imageObject.url)),
+    //       }
+    //     }),
+    //   }
+    //   this.trackApi.createCreation(track.id, encoded.images[0])
+    //   this.broadcast({ type: 'creation', ...encoded })
+    // } catch (e) {
+    //   console.error(e)
+    // }
   }
 }
 
 export interface UserApi {
   login: (spotifyUserId: string, authInfo: AccessToken) => Promise<string>
+  authInfo: (userId: string) => Promise<AccessToken>
 }
 
 export const getUserApi = (env: Env): UserApi => {
@@ -213,12 +283,15 @@ export const getUserApi = (env: Env): UserApi => {
     login: async (spotifyUserId: string, authInfo: AccessToken) => {
       console.log('login')
       const userObjectId = namespace.idFromName(spotifyUserId)
-      console.log('login', userObjectId)
+      console.log('login', userObjectId.toString())
       const user = namespace.get(userObjectId)
 
-      await user.fetch(new Request('http://internal/login', { method: 'POST', body: JSON.stringify(authInfo) }))
-
+      await user.fetch(new Request('http://user/login', { method: 'POST', body: JSON.stringify(authInfo) }))
       return userObjectId.toString()
+    },
+    authInfo: async (userObjectId: string) => {
+      const user = namespace.get(namespace.idFromString(userObjectId))
+      return (await user.fetch(new Request('http://user/authinfo'))) as unknown as AccessToken
     },
   }
 }
