@@ -10,12 +10,14 @@ import { getOrCreateTrack } from './track'
 import { inferImage } from './image-inference'
 
 export async function connect(request: IRequest, env: Env, context: ExecutionContext) {
+  const namespace = env.users.jurisdiction('eu')
+
   let userId = decodeURIComponent(request.params.userId)
   console.log(`Registering user ${userId}`)
-  const id = env.users.idFromString(userId)
+  const id = namespace.idFromString(userId)
   console.log('connected', id)
   try {
-    const user = env.users.get(id)
+    const user = namespace.get(id)
     return user.fetch(request)
   } catch (e) {
     console.error(e)
@@ -197,5 +199,26 @@ export class User implements DurableObject {
     const result: any = await inferImage(sdxlPromptData)
     console.log(result)
     this.broadcast({ type: 'creation', ...result })
+  }
+}
+
+export interface UserApi {
+  login: (spotifyUserId: string, authInfo: AccessToken) => Promise<string>
+}
+
+export const getUserApi = (env: Env): UserApi => {
+  const namespace = env.users.jurisdiction('eu')
+
+  return {
+    login: async (spotifyUserId: string, authInfo: AccessToken) => {
+      console.log('login')
+      const userObjectId = namespace.idFromName(spotifyUserId)
+      console.log('login', userObjectId)
+      const user = namespace.get(userObjectId)
+
+      await user.fetch(new Request('http://internal/login', { method: 'POST', body: JSON.stringify(authInfo) }))
+
+      return userObjectId.toString()
+    },
   }
 }

@@ -1,13 +1,16 @@
 import { AccessToken, IAuthStrategy, SdkConfiguration, SpotifyApi } from '@spotify/web-api-ts-sdk'
 import { IRequest } from 'itty-router'
 import queryString from 'query-string'
+import { getUserApi } from './users'
 
 const scopes = ['user-read-currently-playing', 'user-read-playback-state']
 
 export async function authorize(request: IRequest, env: Env) {
   // Redirect to another URL
   return Response.redirect(
-    `https://accounts.spotify.com/authorize?client_id=${env.SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(
+    `https://accounts.spotify.com/authorize?client_id=${
+      env.SPOTIFY_CLIENT_ID
+    }&response_type=code&redirect_uri=${encodeURIComponent(
       `${env.SYNESTHESAI_WORKER_URL}/authorize/callback`,
     )}&scope=${scopes.join('%20')}`,
     302,
@@ -15,6 +18,8 @@ export async function authorize(request: IRequest, env: Env) {
 }
 
 export async function authorizeCallback(request: IRequest, env: Env) {
+  const userApi = getUserApi(env)
+
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
   const authOptions = {
@@ -36,11 +41,7 @@ export async function authorizeCallback(request: IRequest, env: Env) {
   const sdk: SpotifyApi = getSpotifyApi(env.SPOTIFY_CLIENT_ID, env.SPOTIFY_CLIENT_SECRET, authInfo)
   const profile = await sdk.currentUser.profile()
 
-  const userObjectId = env.users.idFromName(profile.id)
-  console.log('login', userObjectId)
-  const user = env.users.get(userObjectId)
-
-  await user.fetch(new Request('http://internal/login', { method: 'POST', body: JSON.stringify(authInfo) }))
+  const userObjectId = await userApi.login(profile.id, authInfo)
 
   return Response.redirect(`http://localhost:5173?user-id=${userObjectId}`, 302)
 }
