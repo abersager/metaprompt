@@ -43,7 +43,7 @@ export async function authorizeCallback(request: IRequest, env: Env) {
 
   const userObjectId = await userApi.login(profile.id, authInfo)
 
-  return Response.redirect(`http://localhost:5173?user-id=${userObjectId}`, 302)
+  return Response.redirect(`${env.SYNESTHESAI_FRONTEND_URL}?user-id=${userObjectId}`, 302)
 }
 
 // Token refresh seems to be broken in @spotify/web-api-ts-sdk. The Authorization header seems to be necessary

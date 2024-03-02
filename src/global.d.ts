@@ -3,6 +3,7 @@ interface Env {
   OPENAI_API_KEY: string
   REPLICATE_API_TOKEN: string
   AUTH_SECRET: string
+  SYNESTHESAI_FRONTEND_URL: string
   SYNESTHESAI_FRONTEND_URLS: string
   FAL_KEY: string
   SPOTIFY_CLIENT_ID: string

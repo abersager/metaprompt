@@ -23,7 +23,6 @@ export class Track implements DurableObject {
         return await this.creationApi.get(id)
       }),
     )
-    console.log('creations', creations)
     return creations
   }
 
